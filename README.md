@@ -769,3 +769,30 @@ This code, apart from the source in `core/third-party`, is licensed under the MI
 The English-language models are also released under the MIT License. Models for other languages are released under the [Moonshine Community License](https://moonshine.ai), which is a non-commercial license.
 
 The code in `core/third-party` is licensed according to the terms of the open source projects it originates from, with details in a LICENSE file in each subfolder.
+
+## JAX Multi-Core & Gemini CLI Integration
+
+This repository now includes native support for high-performance JAX/Flax inference, optimized for multi-core CPU environments.
+
+### Key Features
+- **Parallel Inference**: Use `jax/inference_parallel_jax.py` to process multiple audio files simultaneously across all available CPU cores (utilizing `jax.pmap`).
+- **Gemini CLI Skill**: A built-in skill configuration (`voice-jax.toml`) and script (`scripts/transcribe_jax_cli.py`) to enable local, private, and fast speech-to-text directly from the Gemini CLI.
+- **Optimized Backend**: Leverages JIT compilation and XLA for minimal latency during transcription.
+
+### Usage
+
+#### 1. Parallel Batch Inference
+To process a batch of audio files across all 16 cores:
+\`\`\`bash
+export XLA_FLAGS="--xla_force_host_platform_device_count=16"
+python jax/inference_parallel_jax.py
+\`\`\`
+
+#### 2. Gemini CLI Skill Setup
+To use this as a Gemini CLI skill:
+1. Ensure the \`num_python\` conda environment is set up with JAX and dependencies.
+2. Link or copy \`voice-jax.toml\` to your Gemini skills directory (e.g., \`~/.gemini/skills/\`).
+3. Invoke via the CLI: \`/voice-jax\`
+
+---
+*Updated on April 25, 2026, to include native JAX multi-core support.*
