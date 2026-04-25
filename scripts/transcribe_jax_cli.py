@@ -1,4 +1,4 @@
-import sys, os, time, queue
+import sys, os, time, queue, argparse
 import numpy as np
 import sounddevice as sd
 import jax
@@ -6,6 +6,7 @@ import jax.numpy as jnp
 from flax.serialization import from_bytes
 from jax_moonshine.models.moonshine import Moonshine
 import tokenizers
+import librosa
 
 def load_weights(model, path):
     if not os.path.exists(path): return None
@@ -14,6 +15,10 @@ def load_weights(model, path):
     return from_bytes(variables['params'], data)
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--file", type=str, help="Path to a WAV file to transcribe instead of live mic")
+    args = parser.parse_args()
+
     repo_root = "/home/kaiser/gemini_project2/kaiser_moonshine_repo"
     weights_path = "/home/kaiser/gemini_project2/weights/moonshine_tiny.msgpack"
     tokenizer_path = os.path.join(repo_root, "weights/moonshine/tokenizer.json")
@@ -25,31 +30,42 @@ def main():
     @jax.jit
     def encode(p, audio):
         x = model.apply({'params': p}, audio, method=model.preprocess)
-        return model.encode(x)
+        return model.apply({'params': p}, x, method=model.encode)
 
     @jax.jit
     def decode_step(p, tokens, context):
         return model.apply({'params': p}, tokens, context, method=model.decode)
 
-    samplerate = 44100
-    q = queue.Queue()
     all_audio = []
-    
-    def callback(indata, frames, time, status):
-        q.put(indata.copy().flatten())
+    samplerate = 44100
 
-    with sd.InputStream(samplerate=samplerate, channels=1, callback=callback):
-        sys.stderr.write("Listening (JAX Backend)... Speak now.\n")
-        last_activity = time.time()
-        start_time = time.time()
-        while True:
-            while not q.empty():
-                chunk = q.get_nowait()
-                all_audio.extend(chunk)
-                if np.sqrt(np.mean(chunk**2)) > 0.01: last_activity = time.time()
-            if (len(all_audio) > 0 and time.time() - last_activity > 1.5) or (time.time() - start_time > 20):
-                break
-            time.sleep(0.1)
+    if args.file:
+        # File-based input (Useful for SSH)
+        sys.stderr.write(f"Processing file: {args.file} with JAX Backend...\n")
+        audio, _ = librosa.load(args.file, sr=samplerate)
+        all_audio = audio.tolist()
+    else:
+        # Live Mic input
+        q = queue.Queue()
+        def callback(indata, frames, time, status):
+            q.put(indata.copy().flatten())
+
+        with sd.InputStream(samplerate=samplerate, channels=1, callback=callback):
+            sys.stderr.write("Listening (JAX Backend)... Speak now.\n")
+            last_activity = time.time()
+            start_time = time.time()
+            while True:
+                while not q.empty():
+                    chunk = q.get_nowait()
+                    all_audio.extend(chunk)
+                    if np.sqrt(np.mean(chunk**2)) > 0.01: last_activity = time.time()
+                if (len(all_audio) > 0 and time.time() - last_activity > 1.5) or (time.time() - start_time > 20):
+                    break
+                time.sleep(0.1)
+
+    if not all_audio:
+        print("No audio captured.")
+        return
 
     # Transcription
     audio_jax = jnp.array(all_audio).reshape(1, -1, 1)
