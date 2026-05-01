@@ -1,0 +1,7 @@
+description = "Speak locally (private, offline) and use the transcript as your next message"
+
+prompt = """
+The user provided the following voice input via local ASR (Moonshine). First, quote the transcription back to the user, then process it as you would any typed input.
+
+!{conda run -n moonshine python /home/kaiser/moonshine-dev/gemini/transcribe.py}
+"""
