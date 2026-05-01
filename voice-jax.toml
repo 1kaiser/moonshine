@@ -1,0 +1,8 @@
+description = "High-performance multi-core JAX transcription using Moonshine"
+
+prompt = """
+The user provided the following voice input via a local high-performance JAX implementation of Moonshine ASR. 
+First, quote the transcription back to the user, then process it as you would any typed input.
+
+!{XLA_FLAGS="--xla_force_host_platform_device_count=16" conda run -n num_python python /home/kaiser/gemini_project2/kaiser_moonshine_repo/scripts/transcribe_jax_cli.py}
+"""
